@@ -1,6 +1,6 @@
 import { getRandomCard, type TarotCard } from './TarotData';
 
-const API_KEY = 'AIzaSyC61pFCNgBAafGllbrMnzPItX5g9e-WGhU';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const MODELS = [
     'gemini-2.5-flash',
