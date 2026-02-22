@@ -1,14 +1,12 @@
 import { getRandomCard, type TarotCard } from './TarotData';
 
-const API_KEY = 'AIzaSyAiLgViBU2DAcwEGiyS4It39hGb9UHCqZ4';
+const API_KEY = 'AIzaSyC61pFCNgBAafGllbrMnzPItX5g9e-WGhU';
 
-// Danh sách các model chính xác từ ListModels để tự động chuyển đổi nếu hết quota
 const MODELS = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-2.5-flash-lite',
-    'gemini-3-flash-preview'
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
 ];
 
 const SYSTEM_PROMPT = `Bạn là Phát — một người anh thân thiết của Hạnh. Vì lớn tuổi hơn nên Phát xưng "anh" để tạo cảm giác gần gũi và dễ chia sẻ.
@@ -76,7 +74,6 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
         parts: [{ text: messageForAI }],
     });
 
-    // Thử lần lượt các model trong danh sách
     for (const modelName of MODELS) {
         try {
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${API_KEY}`;
@@ -100,8 +97,7 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
             const data = await res.json();
 
             if (!res.ok) {
-                console.warn(`Model ${modelName} failed with status ${res.status}. Trying next model...`);
-                // Nếu lỗi 429 (hết quota) hoặc 500+, tiếp tục vòng lặp để thử model tiếp theo
+                console.warn(`Model ${modelName} failed with status ${res.status}. Error: ${data.error?.message}. Trying next model...`);
                 continue;
             }
 
@@ -121,12 +117,10 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
 
         } catch (err) {
             console.error(`Error with model ${modelName}:`, err);
-            // Tiếp tục thử model tiếp theo nếu có lỗi fetch
             continue;
         }
     }
 
-    // Nếu đã thử tất cả các model mà vẫn lỗi
     conversationHistory.pop();
     return {
         text: 'Anh xin lỗi Hạnh, hình như các kết nối của anh đang bị quá tải rồi. Đợi anh một chút xíu nhé! 😢',
