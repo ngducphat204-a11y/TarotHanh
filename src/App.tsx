@@ -34,13 +34,17 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: 'Hey Hạnh 💫\nMuốn bốc bài hay tâm sự gì thì cứ nhắn anh nhé 🌙',
-      sender: 'ai',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem('tarot_messages');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 1,
+        text: 'Hey Hạnh 💫\nMuốn bốc bài hay tâm sự gì thì cứ nhắn anh nhé 🌙',
+        sender: 'ai',
+      },
+    ];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -48,6 +52,26 @@ export default function App() {
   // Audio refs
   const shuffleAudio = useRef<HTMLAudioElement>(null);
   const revealAudio = useRef<HTMLAudioElement>(null);
+
+  // Lưu tin nhắn mỗi khi có thay đổi
+  useEffect(() => {
+    localStorage.setItem('tarot_messages', JSON.stringify(messages));
+  }, [messages]);
+
+  // Xóa nhật ký (nếu Hạnh muốn làm mới hoàn toàn)
+  const clearDiary = () => {
+    if (window.confirm('Hạnh có chắc muốn xóa hết nhật ký tâm sự với anh không? 😢')) {
+      const initial: Message[] = [
+        {
+          id: Date.now(),
+          text: 'Chào Hạnh, mình bắt đầu trang nhật ký mới nhé! 🌙',
+          sender: 'ai',
+        },
+      ];
+      setMessages(initial);
+      localStorage.removeItem('tarot_messages');
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -81,7 +105,7 @@ export default function App() {
     }
 
     try {
-      const response: AiResponse = await sendMessage(value);
+      const response: AiResponse = await sendMessage(value, messages);
 
       // Hiệu ứng âm thanh và rung khi bài hiện ra
       if (response.cards && response.cards.length > 0) {
@@ -154,9 +178,12 @@ export default function App() {
           <h1>Hạnh's Tarot</h1>
           <p>Personal soul guide</p>
         </div>
-        <div className="status-badge">
-          <span className="dot" />
-          Online
+        <div className="header-status">
+          <button onClick={clearDiary} className="clear-btn" title="Xóa nhật ký">🗑️</button>
+          <div className="status-badge">
+            <span className="dot" />
+            Online
+          </div>
         </div>
       </header>
 

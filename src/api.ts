@@ -33,12 +33,6 @@ interface ChatMessage {
     parts: { text: string }[];
 }
 
-let conversationHistory: ChatMessage[] = [];
-
-export function resetConversation() {
-    conversationHistory = [];
-}
-
 export interface AiResponse {
     text: string;
     cards?: TarotCard[];
@@ -56,12 +50,11 @@ function getDrawType(text: string): 'none' | 'single' | 'triple' {
     return 'none';
 }
 
-export async function sendMessage(userText: string): Promise<AiResponse> {
+export async function sendMessage(userText: string, currentMessages: any[]): Promise<AiResponse> {
     let cards: TarotCard[] = [];
     const drawType = getDrawType(userText);
 
     if (drawType === 'triple') {
-        // Bốc 3 lá không trùng nhau
         while (cards.length < 3) {
             const nextCard = getRandomCard();
             if (!cards.find(c => c.name === nextCard.name)) {
@@ -89,9 +82,16 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
 Nhiệm vụ: Hãy đóng vai anh Phát, kết nối và giải thích CHI TIẾT trải bài này cho Hạnh (15-20 câu). Phân tích sự chuyển biến từ quá khứ đến tương lai và đưa ra lời khuyên chân thành.]`;
     }
 
-    conversationHistory.push({
+    // Xây dựng bối cảnh từ tin nhắn hiện có (lấy tối đa 15 tin nhắn gần nhất)
+    const history: ChatMessage[] = currentMessages.slice(-15).map(m => ({
+        role: m.sender === 'ai' ? 'model' : 'user',
+        parts: [{ text: m.text }]
+    }));
+
+    // Thêm tin nhắn mới nhất
+    history.push({
         role: 'user',
-        parts: [{ text: messageForAI }],
+        parts: [{ text: messageForAI }]
     });
 
     for (const modelName of MODELS) {
@@ -105,7 +105,7 @@ Nhiệm vụ: Hãy đóng vai anh Phát, kết nối và giải thích CHI TIẾ
                     system_instruction: {
                         parts: [{ text: SYSTEM_PROMPT }],
                     },
-                    contents: conversationHistory,
+                    contents: history,
                     generationConfig: {
                         temperature: 0.7,
                         topP: 0.95,
@@ -117,21 +117,12 @@ Nhiệm vụ: Hãy đóng vai anh Phát, kết nối và giải thích CHI TIẾ
             const data = await res.json();
 
             if (!res.ok) {
-                console.warn(`Model ${modelName} failed with status ${res.status}. Error: ${data.error?.message}. Trying next model...`);
+                console.warn(`Model ${modelName} failed. Trying next...`);
                 continue;
             }
 
             const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text ||
                 'Hạnh ơi, anh đang hơi lơ đãng chút, Hạnh nhắn lại cho anh nhé! 🌙';
-
-            conversationHistory.push({
-                role: 'model',
-                parts: [{ text: aiText }],
-            });
-
-            if (conversationHistory.length > 20) {
-                conversationHistory = conversationHistory.slice(-20);
-            }
 
             return { text: aiText, cards: cards.length > 0 ? cards : undefined };
 
@@ -141,7 +132,6 @@ Nhiệm vụ: Hãy đóng vai anh Phát, kết nối và giải thích CHI TIẾ
         }
     }
 
-    conversationHistory.pop();
     return {
         text: 'Anh xin lỗi Hạnh, hình như các kết nối của anh đang bị quá tải rồi. Đợi anh một chút xíu nhé! 😢',
         cards: undefined,
