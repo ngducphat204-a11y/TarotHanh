@@ -165,8 +165,43 @@ body {
 }
 
 /* ========== CARD REVEAL ========== */
-.card-reveal {
+.cards-container {
   margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cards-container.multi {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  gap: 12px;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.cards-container.multi::-webkit-scrollbar {
+  display: none;
+}
+
+.cards-container.multi .card-reveal {
+  flex-shrink: 0;
+  width: 85%;
+  margin-top: 0;
+}
+
+.card-spread-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--purple);
+  font-weight: 700;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.card-reveal {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(155, 125, 189, 0.3);

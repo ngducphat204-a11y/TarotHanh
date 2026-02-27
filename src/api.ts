@@ -18,9 +18,9 @@ PHONG CÁCH CỦA ANH PHÁT:
 - Hãy giữ sự tôn trọng nhưng vẫn cực kỳ gần gũi, quan tâm đến cảm xúc của Hạnh.
 
 QUY TẮC GIẢI BÀI TAROT (QUAN TRỌNG):
-- Đầu tiên, hãy nhắc tên lá bài mà anh vừa bốc được một cách tự nhiên.
-- KHÔNG liệt kê ý nghĩa theo kiểu robot. Hãy lồng ghép mọi thứ vào một đoạn hôi thoại dài khoảng 8-12 câu.
-- Phải giải thích CỰC KỲ CHI TIẾT: từ ý nghĩa lá bài đến lời khuyên cho Hạnh. 
+- Nếu bốc 1 lá: Hãy nhắc tên lá bài và giải thích CHI TIẾT (8-12 câu).
+- Nếu bốc 3 lá (Trải bài Quá khứ - Hiện tại - Tương lai): Hãy giải thích sự kết nối giữa 3 lá bài này. Phân tích từng giai đoạn một cách sâu sắc và đưa ra lời khuyên tổng thể cho Hạnh (15-20 câu).
+- KHÔNG liệt kê ý nghĩa theo kiểu robot. Hãy lồng ghép mọi thứ vào một đoạn hội thoại tự nhiên.
 - Không được kết thúc lửng lơ. Hãy chắc chắn câu trả lời hoàn chỉnh và có lời nhắn nhủ sau cùng.
 
 VÍ DỤ TÔNG GIỌNG:
@@ -41,32 +41,52 @@ export function resetConversation() {
 
 export interface AiResponse {
     text: string;
-    card?: TarotCard;
+    cards?: TarotCard[];
 }
 
 const DRAW_KEYWORDS = ['bốc', 'rút', '🃏'];
+const SPREAD_3_KEYWORDS = ['3 lá', 'trải bài', 'quá khứ'];
 const QUICK_ACTION_PREFIXES = ['🃏 bốc', '💜 tình yêu', '💼 công việc', '✨ năng lượng'];
 
-function shouldDrawNewCard(text: string): boolean {
+function getDrawType(text: string): 'none' | 'single' | 'triple' {
     const lower = text.toLowerCase();
-    if (QUICK_ACTION_PREFIXES.some(p => lower.startsWith(p.toLowerCase()))) return true;
-    if (DRAW_KEYWORDS.some(k => lower.includes(k))) return true;
-    return false;
+    if (SPREAD_3_KEYWORDS.some(k => lower.includes(k))) return 'triple';
+    if (QUICK_ACTION_PREFIXES.some(p => lower.startsWith(p.toLowerCase()))) return 'single';
+    if (DRAW_KEYWORDS.some(k => lower.includes(k))) return 'single';
+    return 'none';
 }
 
 export async function sendMessage(userText: string): Promise<AiResponse> {
-    let card: TarotCard | undefined;
+    let cards: TarotCard[] = [];
+    const drawType = getDrawType(userText);
 
-    if (shouldDrawNewCard(userText)) {
-        card = getRandomCard();
+    if (drawType === 'triple') {
+        // Bốc 3 lá không trùng nhau
+        while (cards.length < 3) {
+            const nextCard = getRandomCard();
+            if (!cards.find(c => c.name === nextCard.name)) {
+                cards.push(nextCard);
+            }
+        }
+    } else if (drawType === 'single') {
+        cards = [getRandomCard()];
     }
 
     let messageForAI = userText;
-    if (card) {
+    if (cards.length === 1) {
+        const card = cards[0];
         messageForAI = `${userText}
 
 [HỆ THỐNG: Anh vừa bốc được lá "${card.name}" cho Hạnh. Ý nghĩa: ${card.meaning}. Mô tả: ${card.description}.
 Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢM lá bài này cho Hạnh (8-12 câu). Đừng liệt kê, hãy kể chuyện và phân tích sâu sắc.]`;
+    } else if (cards.length === 3) {
+        messageForAI = `${userText}
+
+[HỆ THỐNG: Anh vừa bốc trải bài 3 lá cho Hạnh:
+1. Quá khứ: "${cards[0].name}" (${cards[0].meaning})
+2. Hiện tại: "${cards[1].name}" (${cards[1].meaning})
+3. Tương lai: "${cards[2].name}" (${cards[2].meaning})
+Nhiệm vụ: Hãy đóng vai anh Phát, kết nối và giải thích CHI TIẾT trải bài này cho Hạnh (15-20 câu). Phân tích sự chuyển biến từ quá khứ đến tương lai và đưa ra lời khuyên chân thành.]`;
     }
 
     conversationHistory.push({
@@ -89,7 +109,7 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
                     generationConfig: {
                         temperature: 0.7,
                         topP: 0.95,
-                        maxOutputTokens: 2048,
+                        maxOutputTokens: 4096,
                     },
                 }),
             });
@@ -109,11 +129,11 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
                 parts: [{ text: aiText }],
             });
 
-            if (conversationHistory.length > 15) {
-                conversationHistory = conversationHistory.slice(-15);
+            if (conversationHistory.length > 20) {
+                conversationHistory = conversationHistory.slice(-20);
             }
 
-            return { text: aiText, card };
+            return { text: aiText, cards: cards.length > 0 ? cards : undefined };
 
         } catch (err) {
             console.error(`Error with model ${modelName}:`, err);
@@ -124,6 +144,6 @@ Nhiệm vụ: Hãy đóng vai anh Phát, giải thích CHI TIẾT và TÌNH CẢ
     conversationHistory.pop();
     return {
         text: 'Anh xin lỗi Hạnh, hình như các kết nối của anh đang bị quá tải rồi. Đợi anh một chút xíu nhé! 😢',
-        card: undefined,
+        cards: undefined,
     };
 }

@@ -7,16 +7,23 @@ interface Message {
   id: number;
   text: string;
   sender: 'ai' | 'user';
-  card?: TarotCard;
+  cards?: TarotCard[];
 }
+
+/* ─── Audio Assets ─── */
+const SHUFFLE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3';
+const REVEAL_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2633/2633-preview.mp3';
 
 /* ─── Quick‑action chips ─── */
 const QUICK_ACTIONS = [
   '🃏 Bốc 1 lá',
+  '🔮 Trải bài 3 lá',
   '💜 Tình yêu',
   '💼 Công việc',
   '✨ Năng lượng hôm nay',
 ];
+
+const SPREAD_LABELS = ['Quá khứ', 'Hiện tại', 'Tương lai'];
 
 /* ─── Main App ─── */
 export default function App() {
@@ -37,6 +44,10 @@ export default function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Audio refs
+  const shuffleAudio = useRef<HTMLAudioElement>(null);
+  const revealAudio = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -64,8 +75,21 @@ export default function App() {
     setInput('');
     setIsLoading(true);
 
+    // Hiệu ứng âm thanh khi bắt đầu bốc bài
+    if (value.includes('bốc') || value.includes('lá') || value.includes('trải')) {
+      shuffleAudio.current?.play().catch(() => { });
+    }
+
     try {
       const response: AiResponse = await sendMessage(value);
+
+      // Hiệu ứng âm thanh và rung khi bài hiện ra
+      if (response.cards && response.cards.length > 0) {
+        revealAudio.current?.play().catch(() => { });
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -73,7 +97,7 @@ export default function App() {
           id: Date.now() + 1,
           text: response.text,
           sender: 'ai',
-          card: response.card,
+          cards: response.cards,
         },
       ]);
     } catch {
@@ -120,6 +144,9 @@ export default function App() {
   /* ─── Render Chat ─── */
   return (
     <div className="app-shell">
+      <audio ref={shuffleAudio} src={SHUFFLE_SOUND} preload="auto" crossOrigin="anonymous" />
+      <audio ref={revealAudio} src={REVEAL_SOUND} preload="auto" crossOrigin="anonymous" />
+
       {/* Header */}
       <header className="header">
         <div className="header-avatar">🌙</div>
@@ -140,13 +167,20 @@ export default function App() {
             <div className="msg-bubble">
               <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
 
-              {msg.card && (
-                <div className="card-reveal">
-                  <div className="card-info">
-                    <h3>{msg.card.name}</h3>
-                    <p className="card-meaning">{msg.card.meaning}</p>
-                    <p className="card-desc">{msg.card.description}</p>
-                  </div>
+              {msg.cards && (
+                <div className={`cards-container ${msg.cards.length > 1 ? 'multi' : 'single'}`}>
+                  {msg.cards.map((card, idx) => (
+                    <div key={idx} className="card-reveal">
+                      <div className="card-info">
+                        {msg.cards!.length > 1 && (
+                          <div className="card-spread-label">{SPREAD_LABELS[idx]}</div>
+                        )}
+                        <h3>{card.name}</h3>
+                        <p className="card-meaning">{card.meaning}</p>
+                        <p className="card-desc">{card.description}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
