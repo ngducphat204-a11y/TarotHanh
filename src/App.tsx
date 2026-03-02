@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { sendMessage, type AiResponse } from './api';
+import html2canvas from 'html2canvas';
 import type { TarotCard } from './TarotData';
 
 /* ─── Types ─── */
@@ -89,6 +90,36 @@ export default function App() {
     }
   };
 
+  /* ─── Export to Image ─── */
+  const downloadReading = async (msgId: number) => {
+    const element = document.getElementById(`reading-${msgId}`);
+    if (!element) return;
+
+    // Tạm chỉnh sửa style nhẹ cho tấm ảnh xuất ra trong trẻo và huyền bí
+    const oldPad = element.style.padding;
+    const oldBg = element.style.background;
+    element.style.padding = '24px';
+    element.style.background = '#1a1625';
+
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#1E1724', // Màu nền tím đen 
+        scale: 2,
+        useCORS: true,
+      });
+
+      const link = document.createElement('a');
+      link.download = `Tarot-Story-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      alert('Không lưu được ảnh rồi Hạnh ơi 😢');
+    } finally {
+      element.style.padding = oldPad;
+      element.style.background = oldBg;
+    }
+  };
+
   /* ─── Send message ─── */
   const send = async (text?: string) => {
     const value = (text ?? input).trim();
@@ -167,9 +198,25 @@ export default function App() {
 
   /* ─── Render Chat ─── */
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ position: 'relative' }}>
+      {/* Tính năng 5: Sparkles / Bụi Tiên */}
+      <div className="sparkles-container">
+        {Array.from({ length: 25 }).map((_, i) => (
+          <div
+            key={i}
+            className="sparkle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 8}s`,
+              animationDuration: `${Math.random() * 4 + 6}s`
+            }}
+          />
+        ))}
+      </div>
+
       <audio ref={shuffleAudio} src={SHUFFLE_SOUND} preload="auto" crossOrigin="anonymous" />
       <audio ref={revealAudio} src={REVEAL_SOUND} preload="auto" crossOrigin="anonymous" />
+
 
       {/* Header */}
       <header className="header">
@@ -188,11 +235,23 @@ export default function App() {
       </header>
 
       {/* Chat */}
-      <div className="chat-area">
+      <div className="chat-area" style={{ zIndex: 2, position: 'relative' }}>
         {messages.map((msg) => (
           <div key={msg.id} className={`msg-row ${msg.sender}`}>
-            <div className="msg-bubble">
+            <div className="msg-bubble" id={msg.sender === 'ai' ? `reading-${msg.id}` : undefined}>
               <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
+
+              {msg.cards && (
+                <div className="action-buttons" data-html2canvas-ignore>
+                  <button
+                    className="action-btn"
+                    onClick={() => downloadReading(msg.id)}
+                    title="Lưu trải bài này về máy để share Story"
+                  >
+                    📸 Lưu ảnh
+                  </button>
+                </div>
+              )}
 
               {msg.cards && (
                 <div className={`cards-container ${msg.cards.length > 1 ? 'multi' : 'single'}`}>
